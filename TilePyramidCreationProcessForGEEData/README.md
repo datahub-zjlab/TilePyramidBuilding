@@ -1,5 +1,10 @@
 本代码旨在通过GEE导出geotif格式的全球图，然后按需切割成金字塔式瓦片。同时也适用于单张或者多张geotif格式其他来源图像。
 
+gdal库安装
+'''bash
+pip install gdal
+'''
+
 1.GEE数据导出
 
 参考mcd12q1，以modis土地覆盖数据为例，自定义导出数据类型，波段，地域范围，时间，分辨率，以及镶嵌方式等等。
@@ -21,3 +26,7 @@
 如果是单张geotif图，修改对应路径，以及设置瓦片等级maxscale，执行python getTiles.py；
 
 如果是多张geotif图，修改对应路径，以及设置瓦片等级maxscale，执行python getTilesMulti.py；
+
+4.其他问题
+
+如果数据不是3857坐标系或者带重叠区域的多张图像，可以使用gdal_merge.py进行镶嵌以及gdalwarp进行重投影。 
