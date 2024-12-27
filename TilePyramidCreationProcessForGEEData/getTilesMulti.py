@@ -68,55 +68,45 @@ def map_to_RGB(data):
             # print(f'{value}-----{color}')
     return image
 
+def pyramidBuilding(input_dir,tmp_path,save_path,maxScale,bands=[1]):
+
+    # 使用 glob 匹配形如 modis_* 的文件
+    modis_files = glob.glob(f'{input_dir}/*.tif')
+    #modis_files含有多个tif文件，对每个tif切瓦片
+    for modis_tif in tqdm(modis_files):
+        ds = gdal.Open(modis_tif)
+        geotransform = ds.GetGeoTransform()
+        projection = ds.GetProjection()
+        bbox = geotransform_to_bbox(geotransform, ds.RasterXSize, ds.RasterYSize)
+        band = ds.GetRasterBand(bands[0])
+        data = band.ReadAsArray()
+        ds = None
+        data3  = np.expand_dims(data, axis=0)
+        for i in range(maxScale):
+            basetileList = BaseTileGenerator(data3, geotransform, bbox, max_zoom=i, min_zoom=1, nodata_value=0, tile_size=256, xyz_flag=True, max_zoom_level=32)
+            myList = basetileList.generate_tiles()
+            for imagedict in myList:
+                outpath = f"{tmp_path}/{imagedict['current_index']}.npy"
+                outpathPGN = f"{save_path}/{imagedict['current_index']}.png"
+                if os.path.exists(outpath):
+                    existData = np.load(outpath)
+                    existData[existData==0] += imagedict['data'][existData==0]
+                else:
+                    existData = imagedict['data']
+                os.makedirs(os.path.dirname(outpath), exist_ok=True)
+                np.save(outpath,existData)
+                #这里改你的映射函数
+                savedData = map_to_RGB(existData)
+                #映射之后savedData需为3通道RGB矩阵
+                save_matrix_as_png(np.array(savedData),outpathPGN)
+def main():
+    input_dir = './'
+    tmp_path = './tiles_tmp'
+    save_path = './tiles'
+    maxScale = 8
+    bands=[1]
+    pyramidBuilding(input_dir,tmp_path,save_path,maxScale,bands)
 
 
-
-#---------------导入完整的tiff文件----------------------------
-mcdPath = '/home/data2/qwy/MCD12Q1'
-#存放npy中间文件
-rootPath = '/home/data2/qwy/MCD12Q1/tiles3'
-#存放最终瓦片文件
-rootPath2 = '/home/data2/qwy/MCD12Q1/tiles4'
-maxScale = 3
-# 使用 glob 匹配形如 modis_* 的文件
-modis_files = glob.glob(f'{mcdPath}/modis_*')
-#modis_files含有多个tif文件，对每个tif切瓦片
-for modis_tif in tqdm(modis_files):
-    ds = gdal.Open(modis_tif)
-    geotransform = ds.GetGeoTransform()
-    projection = ds.GetProjection()
-    bbox = geotransform_to_bbox(geotransform, ds.RasterXSize, ds.RasterYSize)
-    band = ds.GetRasterBand(1)
-    data = band.ReadAsArray()
-    ds = None
-    #切分
-    #data3  = np.stack([data, data, data], axis=0)
-    #data = np.transpose(data,[1,0])
-    data3  = np.expand_dims(data, axis=0)
-    print(np.shape(data3))
-    #假定为3级
-    for i in range(maxScale):
-        basetileList = BaseTileGenerator(data3, geotransform, bbox, max_zoom=i, min_zoom=1, nodata_value=0, tile_size=256, xyz_flag=True, max_zoom_level=32)
-        myList = basetileList.generate_tiles()
-
-        #保存为对应级别tile
-        
-        for imagedict in myList:
-            outpath = f"{rootPath}/{imagedict['current_index']}.npy"
-            outpathPGN = f"{rootPath2}/{imagedict['current_index']}.png"
-            if os.path.exists(outpath):
-                existData = np.load(outpath)
-                #existData = existData+imagedict['data']
-                existData[existData==0] += imagedict['data'][existData==0]
-            else:
-                existData = imagedict['data']
-            os.makedirs(os.path.dirname(outpath), exist_ok=True)
-            np.save(outpath,existData)
-            #这里改你的映射函数
-            savedData = map_to_RGB(existData)
-            #映射之后savedData需为3通道RGB矩阵
-            save_matrix_as_png(np.array(savedData),outpathPGN)
-
-
-
-
+if __name__ == "__main__":
+    main()
